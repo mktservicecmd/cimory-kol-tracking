@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cimory KOL Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-0: #f4f3f0;
+    --surface-1: #fcfcfb;
+    --border: #e2e0da;
+    --grid: #ebe9e4;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #7a7974;
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --good: #008300;
+    --critical: #d03b3b;
+    --accent: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface-0: #111110;
+      --surface-1: #1a1a19;
+      --border: #2e2e2b;
+      --grid: #2a2a27;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #8f8e86;
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --good: #3fae3f;
+      --critical: #e66767;
+      --accent: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-0: #111110;
+    --surface-1: #1a1a19;
+    --border: #2e2e2b;
+    --grid: #2a2a27;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e86;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --good: #3fae3f;
+    --critical: #e66767;
+    --accent: #3987e5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--surface-0); color: var(--text-primary);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+  .muted { color: var(--text-muted); font-size: 12px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+  select, input[type=search] {
+    font: inherit; color: var(--text-primary); background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; min-width: 0;
+  }
+  input[type=search] { flex: 1 1 200px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .kpi .label { color: var(--text-secondary); font-size: 12px; }
+  .kpi .value { font-size: 24px; font-weight: 650; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; margin-top: 12px; }
+  .chart-box { position: relative; height: 320px; }
+  .table-card { margin-top: 12px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--grid); text-align: right; white-space: nowrap; }
+  th { color: var(--text-secondary); font-weight: 600; font-size: 12px; cursor: pointer; user-select: none; position: sticky; top: 0; background: var(--surface-1); }
+  th.sorted::after { content: " ▾"; }
+  th.sorted.asc::after { content: " ▴"; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+  td a { color: var(--accent); text-decoration: none; }
+  .delta-up { color: var(--good); }
+  .badge { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); color: var(--text-secondary); }
+  .badge.warn { color: var(--critical); border-color: var(--critical); }
+  .empty { padding: 40px; text-align: center; color: var(--text-muted); }
+  @media (max-width: 480px) { .charts { grid-template-columns: 1fr; } .chart-box { height: 260px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Cimory KOL Performance Tracker</h1>
+    <span class="muted" id="updated"></span>
+  </header>
+
+  <div class="filters">
+    <select id="f-campaign" aria-label="Campaign"></select>
+    <select id="f-platform" aria-label="Platform"></select>
+    <input type="search" id="f-search" placeholder="Cari KOL / username…" aria-label="Cari KOL">
+  </div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="charts">
+    <div class="card">
+      <h2>Views per KOL (terbaru)</h2>
+      <div class="chart-box"><canvas id="chart-kol" aria-label="Views per KOL"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Total views dari waktu ke waktu</h2>
+      <div class="chart-box"><canvas id="chart-trend" aria-label="Total views per tanggal"></canvas></div>
+    </div>
+  </section>
+
+  <section class="card table-card">
+    <h2>Detail per post</h2>
+    <table id="tbl"><thead></thead><tbody></tbody></table>
+  </section>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null || { generated_at: "-", snapshots: [] };
+
+const fmt = new Intl.NumberFormat("id-ID");
+const fmtCompact = new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 });
+const n = v => v == null ? "–" : fmt.format(Math.round(v));
+const pct = v => v == null ? "–" : v.toFixed(2).replace(".", ",") + "%";
+const rp = v => v == null ? "–" : "Rp " + fmt.format(Math.round(v));
+const rp2 = v => v == null ? "–" : "Rp " + v.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+document.getElementById("updated").textContent = "Diperbarui " + DATA.generated_at;
+
+const snaps = DATA.snapshots;
+const campaigns = [...new Set(snaps.map(r => r.campaign))].sort();
+const platforms = [...new Set(snaps.map(r => r.platform))].sort();
+const fill = (el, label, values) => {
+  el.innerHTML = `<option value="">${label}</option>` + values.map(v => `<option>${esc(v)}</option>`).join("");
+};
+const $c = document.getElementById("f-campaign"), $p = document.getElementById("f-platform"), $s = document.getElementById("f-search");
+fill($c, "Semua campaign", campaigns);
+fill($p, "Semua platform", platforms);
+
+function filtered() {
+  const q = $s.value.trim().toLowerCase();
+  return snaps.filter(r =>
+    (!$c.value || r.campaign === $c.value) &&
+    (!$p.value || r.platform === $p.value) &&
+    (!q || (r.kol_name + " " + r.username).toLowerCase().includes(q)));
+}
+
+// Snapshot terbaru per post (utamakan yang status ok) + delta views vs snapshot ok sebelumnya.
+function latestPerPost(rows) {
+  const byPost = {};
+  for (const r of rows) (byPost[r.post_url] ||= []).push(r);
+  return Object.values(byPost).map(list => {
+    list.sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
+    const ok = list.filter(r => r.status === "ok");
+    const last = ok.at(-1) || list.at(-1);
+    const prev = ok.length > 1 ? ok.at(-2) : null;
+    const stale = list.at(-1).status !== "ok";
+    return { ...last, delta_views: prev && last.views != null && prev.views != null ? last.views - prev.views : null,
+             stale: stale && ok.length > 0, missing: ok.length === 0 };
+  });
+}
+
+const sum = (rows, k) => rows.reduce((s, r) => s + (r[k] || 0), 0);
+
+function renderKpis(latest) {
+  const views = sum(latest, "views"), eng = sum(latest, "engagements"), fee = sum(latest, "fee_idr");
+  const viewsForEr = sum(latest.filter(r => r.views && r.engagements != null), "views");
+  const engForEr = sum(latest.filter(r => r.views && r.engagements != null), "engagements");
+  const kpis = [
+    ["Post di-track", n(latest.length)],
+    ["KOL", n(new Set(latest.map(r => r.kol_name)).size)],
+    ["Total views", fmtCompact.format(views)],
+    ["Total engagement", fmtCompact.format(eng)],
+    ["ER (eng / views)", viewsForEr ? pct(engForEr / viewsForEr * 100) : "–"],
+    ["Total fee", fee ? "Rp " + fmtCompact.format(fee) : "–"],
+    ["CPV", fee && views ? rp2(fee / views) : "–"],
+    ["CPE", fee && eng ? rp2(fee / eng) : "–"],
+  ];
+  document.getElementById("kpis").innerHTML = kpis.map(([l, v]) =>
+    `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div></div>`).join("");
+}
+
+let kolChart, trendChart;
+function baseOptions() {
+  return {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: {
+      legend: { labels: { color: css("--text-secondary"), boxWidth: 10, boxHeight: 10, usePointStyle: true } },
+      tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${n(c.parsed.x ?? c.parsed.y)}` } },
+    },
+    scales: {
+      x: { grid: { color: css("--grid") }, border: { display: false }, ticks: { color: css("--text-muted") } },
+      y: { grid: { color: css("--grid") }, border: { display: false }, ticks: { color: css("--text-muted") } },
+    },
+  };
+}
+
+function renderKolChart(latest) {
+  const byKol = {};
+  for (const r of latest) byKol[r.kol_name] = (byKol[r.kol_name] || 0) + (r.views || 0);
+  const top = Object.entries(byKol).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const opt = baseOptions();
+  opt.indexAxis = "y";
+  opt.plugins.legend.display = false;
+  opt.plugins.tooltip.callbacks.label = c => ` ${n(c.parsed.x)} views`;
+  opt.scales.x.ticks.callback = v => fmtCompact.format(v);
+  opt.scales.y.grid.display = false;
+  kolChart?.destroy();
+  kolChart = new Chart(document.getElementById("chart-kol"), {
+    type: "bar",
+    data: { labels: top.map(t => t[0]), datasets: [{ label: "Views", data: top.map(t => t[1]),
+      backgroundColor: css("--series-1"), borderRadius: 4, borderSkipped: "start", maxBarThickness: 18 }] },
+    options: opt,
+  });
+}
+
+// Total views per tanggal per platform; post yang gagal di-scrape memakai angka terakhirnya (carry-forward).
+function renderTrend(rows) {
+  const dates = [...new Set(rows.map(r => r.snapshot_date))].sort();
+  const plats = [...new Set(rows.map(r => r.platform))].sort();
+  const colorOf = { tiktok: css("--series-1"), instagram: css("--series-2") };
+  const datasets = plats.map((p, i) => {
+    const last = {};
+    const byDate = {};
+    for (const r of rows) if (r.platform === p && r.status === "ok") (byDate[r.snapshot_date] ||= []).push(r);
+    const data = dates.map(d => {
+      for (const r of byDate[d] || []) last[r.post_url] = r.views || 0;
+      return Object.values(last).reduce((a, b) => a + b, 0);
+    });
+    const color = colorOf[p] || css(i ? "--series-2" : "--series-1");
+    return { label: p, data, borderColor: color, backgroundColor: color, borderWidth: 2,
+             pointRadius: dates.length > 20 ? 0 : 4, pointHoverRadius: 5, tension: 0.2 };
+  });
+  const opt = baseOptions();
+  opt.interaction = { mode: "index", intersect: false };
+  opt.plugins.legend.display = plats.length > 1;
+  opt.scales.y.ticks.callback = v => fmtCompact.format(v);
+  opt.scales.y.beginAtZero = true;
+  opt.scales.x.grid.display = false;
+  trendChart?.destroy();
+  trendChart = new Chart(document.getElementById("chart-trend"), { type: "line", data: { labels: dates, datasets }, options: opt });
+}
+
+const COLS = [
+  { k: "kol_name", t: "KOL", f: (v, r) => `${esc(v)}<br><span class="muted">${r.username ? "@" + esc(r.username) + " · " : ""}${esc(r.campaign)}</span>` },
+  { k: "platform", t: "Platform", f: (v, r) => `<a href="${esc(r.post_url)}" target="_blank" rel="noopener">${esc(v)} ↗</a>` +
+      (r.stale ? ` <span class="badge warn" title="Scrape terakhir gagal, menampilkan data ${esc(r.snapshot_date)}">stale</span>` : "") +
+      (r.missing ? ` <span class="badge warn" title="Post tidak ditemukan: cek URL, akun private, atau post terhapus">tidak ditemukan</span>` : "") },
+  { k: "post_date", t: "Tgl post", f: v => esc(v) },
+  { k: "views", t: "Views", f: n },
+  { k: "delta_views", t: "Δ views", f: v => v == null ? "–" : `<span class="${v > 0 ? "delta-up" : ""}">${v > 0 ? "+" : ""}${n(v)}</span>` },
+  { k: "likes", t: "Likes", f: n },
+  { k: "comments", t: "Comments", f: n },
+  { k: "shares", t: "Shares", f: n },
+  { k: "saves", t: "Saves", f: n },
+  { k: "engagements", t: "Engagement", f: n },
+  { k: "er_views_pct", t: "ER views", f: pct },
+  { k: "er_followers_pct", t: "ER followers", f: pct },
+  { k: "fee_idr", t: "Fee", f: rp },
+  { k: "cpv_idr", t: "CPV", f: rp2 },
+  { k: "cpe_idr", t: "CPE", f: rp2 },
+];
+let sortKey = "views", sortAsc = false;
+
+function renderTable(latest) {
+  const thead = document.querySelector("#tbl thead"), tbody = document.querySelector("#tbl tbody");
+  thead.innerHTML = "<tr>" + COLS.map(c =>
+    `<th data-k="${c.k}" class="${c.k === sortKey ? "sorted" + (sortAsc ? " asc" : "") : ""}">${c.t}</th>`).join("") + "</tr>";
+  const rows = [...latest].sort((a, b) => {
+    const x = a[sortKey], y = b[sortKey];
+    if (x == null && y == null) return 0;
+    if (x == null) return 1;
+    if (y == null) return -1;
+    const cmp = typeof x === "number" ? x - y : String(x).localeCompare(String(y));
+    return sortAsc ? cmp : -cmp;
+  });
+  tbody.innerHTML = rows.length
+    ? rows.map(r => "<tr>" + COLS.map(c => `<td>${c.f(r[c.k], r)}</td>`).join("") + "</tr>").join("")
+    : `<tr><td colspan="${COLS.length}" class="empty">Belum ada data. Isi data/kol_posts.csv lalu jalankan tracker.</td></tr>`;
+  thead.querySelectorAll("th").forEach(th => th.onclick = () => {
+    if (sortKey === th.dataset.k) sortAsc = !sortAsc; else { sortKey = th.dataset.k; sortAsc = false; }
+    renderTable(latest);
+  });
+}
+
+function render() {
+  const rows = filtered();
+  const latest = latestPerPost(rows);
+  renderKpis(latest);
+  if (window.Chart) { renderKolChart(latest); renderTrend(rows); }
+  renderTable(latest);
+}
+[$c, $p].forEach(el => el.addEventListener("change", render));
+$s.addEventListener("input", render);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+name: Track KOL performance
+
+on:
+  schedule:
+    # Setiap hari 08:47 WIB (01:47 UTC)
+    - cron: "47 1 * * *"
+  workflow_dispatch:
+    inputs:
+      campaign:
+        description: "Nama campaign (kosongkan untuk semua)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kol-tracker
+  cancel-in-progress: false
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Scrape views & engagement via Apify
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          CAMPAIGN: ${{ github.event.inputs.campaign }}
+        run: |
+          if [ -n "$CAMPAIGN" ]; then
+            python src/tracker.py --campaign "$CAMPAIGN"
+          else
+            python src/tracker.py
+          fi
+
+      - name: Commit snapshot & dashboard
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data docs
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan."
+          else
+            git commit -m "data: snapshot KOL $(TZ=Asia/Jakarta date +%F)"
+            git push
+          fi
