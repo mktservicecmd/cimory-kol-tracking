@@ -48,6 +48,8 @@ def fix_cat(c):
 
 def main(run, sheet_json):
     now = dt.datetime.now(dt.timezone.utc)
+    if os.environ.get('IG_NOW'):  # replay a past run (ISO UTC timestamp)
+        now = dt.datetime.fromisoformat(os.environ['IG_NOW'])
     today = now.astimezone(WIB).date()
     versions = json.load(open(f'{run}/data/versions.json'))
 
@@ -112,11 +114,14 @@ def main(run, sheet_json):
             upd[i] = u
 
     items = []
-    if apify_ids:
+    if os.environ.get('IG_ITEMS'):  # reuse saved Apify items instead of a new run
+        items = json.load(open(os.environ['IG_ITEMS']))
+    elif apify_ids:
         urls = [docs[i]['link'] for i in apify_ids]
         for k in range(0, len(urls), 50):
             items += run_actor(IG.actor_id, IG.build_input(urls[k:k + 50]))
-    json.dump(items, open(f'{run}/data/apify.json', 'w'))
+    if not os.environ.get('IG_ITEMS'):
+        json.dump(items, open(f'{run}/data/apify.json', 'w'))
     by = {}
     for it in items:
         if it.get('error'):
@@ -164,11 +169,12 @@ def main(run, sheet_json):
         if code not in have and mo and mo >= 9 and num(r.get('Year')) == 2026:
             out['newrows'].append([str(r.get('KOL Name')), code])
 
-    os.makedirs(f'{REPO}/.w', exist_ok=True)
+    out_w = os.environ.get('IG_OUT', f'{REPO}/.w')
+    os.makedirs(out_w, exist_ok=True)
     writes = []
     for i, u in upd.items():
         u['updatedAt'] = now.strftime('%Y-%m-%dT%H:%M:%SZ')
-        json.dump(u, open(f'{REPO}/.w/{i}.json', 'w'))
+        json.dump(u, open(f'{out_w}/{i}.json', 'w'))
         writes.append({'op': 'update', 'collection': 'live_posts', 'doc_id': i,
                        'if_version': versions[i], 'file_path': f'.w/{i}.json'})
     json.dump(writes, open(f'{run}/data/writes.json', 'w'))
