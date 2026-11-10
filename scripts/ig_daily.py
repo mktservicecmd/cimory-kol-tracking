@@ -21,6 +21,8 @@ CATS = {'UHT No Added Sugar', 'UHT 250', 'Eat Milk', 'Yogurt No Added Sugar',
         'Yogurt Stickpack', 'Yogurt Bites', 'Yogurt Squeeze'}
 NOTE_A = 'Instagram stats from the report numbers in Sheet1.'
 NOTE_B = 'Instagram stats via Apify (updated daily until H+35). Shares and saves are not public on Instagram.'
+MONTHS = {m: i for i, m in enumerate(['january', 'february', 'march', 'april', 'may', 'june', 'july',
+                                     'august', 'september', 'october', 'november', 'december'], 1)}
 CODE = re.compile(r'instagram\.com/(?:[\w.]+/)?(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)')
 
 
@@ -165,7 +167,7 @@ def main(run, sheet_json):
     # Sheet1 IG rows (Sept onwards) with no live doc yet
     have = {os.path.basename(f)[3:-5] for f in glob.glob(f'{run}/live_posts/ig-*.json')}
     for code, r in rows.items():
-        mo = num(r.get('Month'))
+        mo = num(r.get('Month')) or MONTHS.get(str(r.get('Month', '')).strip().lower())
         if code not in have and mo and mo >= 9 and num(r.get('Year')) == 2026:
             out['newrows'].append([str(r.get('KOL Name')), code])
 
