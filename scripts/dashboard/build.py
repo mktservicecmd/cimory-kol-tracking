@@ -11,7 +11,7 @@ def sdate(r):
 for idx,i in P:
     r=df.loc[idx]; e=E[i]
     ch=[f for f in STAT if num(r[F[f]]) is not None and abs(num(r[F[f]])-e[f])>1]
-    for f in ch: e[f]=int(round(num(r[F[f]])))
+    for f in ch: e[f]=int(round(num(r[F[f]])))  # Sheet1 is the source of truth for these rows
     if num(r[F['fee']]) is not None and abs(num(r[F['fee']])-e['fee'])>1: ch.append('fee'); e['fee']=int(round(num(r[F['fee']])))
     if ch: log['stats'].append((e['kol'],e['m'],ch))
     eng=e['likes']+e['comments']+e['shares']+e['saves']
@@ -41,6 +41,26 @@ for idx in un:
     for f in STAT: e[f]=int(round(num(r[F[f]]) or 0))
     e['eng']=e['likes']+e['comments']+e['shares']+e['saves']; e['q']=q
     E.append(e); log['new'].append((e['kol'],e['m'],e['plat'],e['total']))
+
+# ---- manual fixes agreed with the user (10 Nov 2026) ----
+LINKFIX={  # Aug "Product Launch BBCC": Sheet1 links point at another KOL's video
+ 'azzsyr':'https://www.tiktok.com/@azzsyr/video/7679479808136334600',
+ 'gedehidayah27':'https://www.tiktok.com/@gedehidayah27/video/7679415078533221639',
+ 'salmaaristiana':'https://www.tiktok.com/@salmaristiana/video/7679360069154163989',
+ 'willenlen':'https://www.tiktok.com/@willenlen/video/7679319673015373076',
+ 'shinta_rona':'https://www.tiktok.com/@shinta_rona/video/7679437743520255249',
+ 'emakdankriwil17':'https://www.tiktok.com/@emakdankriwil17/video/7678628326642339093',
+ 'marmyutt':'https://www.tiktok.com/@marmyutt/video/7679768287068163336',
+ 'aryyobin':'',  # his own video link is not in Sheet1; the given link is @sakhansaaa's
+}
+DROP={('aurel',4),('nikita willy',4)}  # May, Es Krim Yogurt: no fee, removed on request
+log['fix']=[]
+for e in E:
+    if e['m']==7 and e['camp'].startswith('Product Launch') and e['kol'].lower() in LINKFIX and e['link']!=LINKFIX[e['kol'].lower()]:
+        log['fix'].append((e['kol'],'link',e['link'],LINKFIX[e['kol'].lower()])); e['link']=LINKFIX[e['kol'].lower()]
+    if e['kol'].lower()=='gedehidayah27' and e['m']==6 and e['saves']<10:  # Sheet1 "3.971" = 3,971
+        log['fix'].append((e['kol'],'saves',e['saves'],3971)); e['saves']=3971; e['eng']=e['likes']+e['comments']+e['shares']+e['saves']
+n=len(E); E=[e for e in E if (e['kol'].lower(),e['m']) not in DROP]; log['fix'].append(('dropped',n-len(E)))
 # re-encode
 C=d['cols']; D={k:[] for k in d['dict']}
 for k in D: D[k]=list(d['dict'][k])
