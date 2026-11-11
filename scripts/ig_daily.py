@@ -21,6 +21,15 @@ CATS = {'UHT No Added Sugar', 'UHT 250', 'Eat Milk', 'Yogurt No Added Sugar',
         'Yogurt Stickpack', 'Yogurt Bites', 'Yogurt Squeeze'}
 NOTE_A = 'Instagram stats from the report numbers in Sheet1.'
 NOTE_B = 'Instagram stats via Apify (updated daily until H+35). Shares and saves are not public on Instagram.'
+NOTE_B_OPEN = 'Instagram stats via Apify (updated daily, no end date for posts from November 2026 onward). Shares and saves are not public on Instagram.'
+OPEN_FROM = 10  # 0-based month (Nov 2026): from here on, posts never go final at H+35
+
+
+def open_ended(d):
+    pa = d.get('postedAt') or ''
+    y = int(pa[:4]) if pa[:4].isdigit() else 2026
+    return y * 12 + (d.get('month') or 0) >= 2026 * 12 + OPEN_FROM
+
 MONTHS = {m: i for i, m in enumerate(['january', 'february', 'march', 'april', 'may', 'june', 'july',
                                      'august', 'september', 'october', 'november', 'december'], 1)}
 CODE = re.compile(r'instagram\.com/(?:[\w.]+/)?(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)')
@@ -156,8 +165,8 @@ def main(run, sheet_json):
         snaps = [s for s in snaps if s.get('d') != snap['d']] + [snap]
         snaps.sort(key=lambda s: (s.get('h') is None, s.get('h') or 0, s.get('d')))
         u['snapshots'] = snaps
-        u['note'] = NOTE_B
-        if h is not None and h >= 35:
+        u['note'] = NOTE_B_OPEN if open_ended(d) else NOTE_B
+        if h is not None and h >= 35 and not open_ended(d):
             u['final'] = True
             out['h35'].append(i)
         gains.append((d.get('kol'), n['views'], n['views'] - (prev or 0)))
